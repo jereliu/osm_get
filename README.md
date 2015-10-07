@@ -18,7 +18,8 @@ R Script to:
 	
 * Extract building model out of a OBJ file
  	- [x] Write R script to subset buildings
- 	- [ ] Fix Vertex index
+ 	- [x] Fix Vertex index
+ 	- [] Fix Stragglers with irregular data
 	
 * Figure out how to measure volumn of a OBJ file
 	- [ ] No idea yet....
