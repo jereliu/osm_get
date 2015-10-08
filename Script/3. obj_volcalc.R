@@ -22,21 +22,47 @@ outcome_list <-
   set_names(file_list)
 
 fail_file_list <- character(0)
-  
+
 for (file_name in file_list) {
-  outcome_list[[file_name]] <- 
+  outcome_list[[file_name]] <- res <-
     tryCatch(
       obj_filter(file_name, key = "^Building$", 
                  verbose = FALSE, 
                  in_dir = in_dir, out_dir = out_dir), 
       error = function(e) e)
   # record fail file name
-  if("error" %in% class(outcome_list[[file_name]])){
+  if("error" %in% class(res)){
     cat("FAIL!!!\n")
     fail_file_list <- c(fail_file_list, file_name)
   }
 }
 
-# save results 
+# save/load results 
 save(outcome_list, file = "outcome_list.RData")
-save(fail_file_list, file = "fail_file_list.RData")
+
+#### 4. fix stragglers (mess around) ####
+debug <- FALSE
+
+if (debug){
+  load("outcome_list_1.RData")
+  
+  # extract files with error and exception
+  error_idx <- 
+    sapply(outcome_list, 
+           function(x) "error" %in% class(x)) 
+  error_list <- outcome_list[error_idx]
+  
+  
+  except_list <- 
+    sapply(outcome_list[!error_idx], 
+           function(x) x != 0) %>%
+    (function(idx)  outcome_list[!error_idx][idx]) %>% 
+    unlist
+  
+  # first fix exception
+  table(except_list) # all type 1.
+}
+
+
+
+

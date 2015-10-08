@@ -131,15 +131,24 @@ obj_filter <-
            in_dir = "./Data_3d/",
            out_dir = "./Data_3d_building/")
   {
-    # Function to 
-    # 1. filter needed component from a OSM2World obj file
-    # 2. fix vertex index 
+    # Main Function to 
+    # (a). filter needed component from a OSM2World obj file
+    # (b). fix vertex index 
+    
+    # Input variable:
+    # > file_name: file_name WITHOUT extension
+    # > key: key word to be filtered e.g. 'road', 'building', etc
+    
+    # Value:
+    #   0:  Success
+    #   1:  Object specified by pattern not found
+    #   2:  Vertices required by facet can't be found
+    #   3:  (impossible) there exists vertices not required by facet.
+    #   4:  (impossible) Facet and Vertices set not equal but not 3 or 4
     
     # Reference to OBJ format: 
     #       http://www.cs.cmu.edu/~mbz/personal/graphics/obj.html
     
-    # > file_name: file_name WITHOUT extension
-    # > key: key word to be filtered e.g. 'road', 'building', etc
     
     cat("Processing", file_name, "..")
     # 1. read file into string ===
@@ -148,7 +157,7 @@ obj_filter <-
     # mark vertex index, "v a b c" => "v22 a b c"
     v_idx <- grep("^v ", txt)
     
-    txt[v_idx] <- 
+    txt[v_idx] <- #mark vertex
       paste0("v", 1:length(v_idx)) %>% 
       mapply(gsub, "^v", ., txt[v_idx]) %>% 
       as.vector
@@ -202,11 +211,21 @@ obj_filter <-
     if (verbose) {
       cat("\n Available obj types from '", file_name, "' are:\n ")
       cat(paste(1:length(types), types, "\n"))
-      cat("given key is \'", key, "\', below object types will be returned:\n ")
+      cat(sprintf("given pattern is '%s', ", key))
+    }
+    
+    if (length(types_idx) == 0) {
+      cat("nothing found :( return 1 \n")
+      return(1)
+    }
+    
+    if (verbose) {
+      cat("below object types will be returned:\n")
       cat(paste(types_idx, types_target, "\n"))
     }
     
-    # obtain target objects
+    
+    # obtain target objects (vertex marked)
     target_list_raw <- 
       # first obtain index of target list
       grep(key, group_title_exact) %>%
@@ -216,8 +235,10 @@ obj_filter <-
     ### 4. Fix vertex ===
     # input: target_list_raw (vertex marked)
     # output: target_list (vertex index fixed and vertex clean)
+    
+    # first obtain raw text of selected target
     target_txt <- unlist(target_list_raw) %>% as.character
-     
+    
     ## 4.1 First check if vertex set includes facet set match
     vertex_set <-
       grep("^v[0-9]* ", target_txt, value = TRUE) %>% 
@@ -235,26 +256,118 @@ obj_filter <-
       facet_list %>% unlist %>% 
       as.numeric %>% unique %>% sort
     
-    # see if any vextex needed by facet is not in vertex_set
+    lost_vert <- 
+      setdiff(facet_set, vertex_set) %>% sort
+    
+    ## 4.2 if not, retrieve missing vertices 
+    # output: updated target_txt
+    if(length(lost_vert) > 0){
+      if (verbose) cat("retriving extra vertices\n")
+      
+      # merge missing vertices back to file, by the order of vertex
+      # (indexing-trick-based implementation)
+      # should vectorize this!!!!!
+      target_txt_old <- target_txt
+      
+      # a. for each lost vertex, find location of next smallest vertex in old_idx
+      lost_vert_set <- 
+        lost_vert %>%
+        paste0("^v", ., " ") %>% 
+        paste0(collapse ="|") %>%
+        grep(txt, value = TRUE)
+      
+      insert_loc <- 
+        # a list, 
+        #   name = the location to insert, 
+        #   element = name of vertices to insert 
+        sapply(lost_vert, 
+               function(vert_toAdd_idx){
+                 # if the smallest, append it to begining
+                 if (vert_toAdd_idx < min(vertex_set)) 
+                   return(0)
+                 
+                 # find next smallest vertex
+                 max(vertex_set[vertex_set < vert_toAdd_idx]) %>%
+                   # find its location
+                   paste0("^v", ., " ") %>% 
+                   grep(target_txt_old)
+               }
+        ) %>% 
+        # now collect this named vector to list
+        split(lost_vert_set, .)
+      
+      # b. create new textline index 
+      old_idx <- 1:length(target_txt_old)
+      new_idx <- numeric(0)
+      
+      for (loc in names(insert_loc)){
+        # find content of new vertices to insert
+        vert_new <- insert_loc[[loc]] 
+        
+        # on old_idx, keep index before 'insert_loc' same, 
+        # every index after it adds one
+        loc_num <- as.numeric(loc)
+        
+        idx_to_update <- (loc_num + 1):length(old_idx)
+        old_idx[idx_to_update] <- 
+          old_idx[idx_to_update] + length(vert_new)
+        
+        new_idx <- 
+          c(new_idx, 
+            ifelse(loc_num == 0, 0, old_idx[loc_num]) + 
+              (1:length(vert_new))
+          ) 
+      }
+      
+      # quick check if what did is valid, TRUE then ok
+      valid <- 
+        c(old_idx, new_idx) %>% sort %>% 
+        equals(1:(length(old_idx)+length(new_idx))) %>%
+        all
+      
+      if (!valid){ 
+        cat("problem with re-indexing\n")
+        return(5)
+      }
+      
+      # c. create new textline set "target_txt"
+      target_txt <- #initiate empty vector
+        vector("character", 
+               length(old_idx) + length(new_idx))
+      
+      target_txt[old_idx] <- target_txt_old
+      target_txt[new_idx] <- lost_vert_set
+      
+      # d. update vertex set
+      vertex_set <-
+        grep("^v[0-9]* ", target_txt, value = TRUE) %>% 
+        # keep only "123" from "v123 a b c"
+        gsub("^v| [[:punct:][:digit:][:blank:]]+", "",.) %>%
+        as.numeric %>% unique %>% sort
+    }
+    
+    
+    # final check, see if any vextex needed by facet is 
+    # not in vertex_set.
     if (!setequal(facet_set, vertex_set)){
       lost_vert <- setdiff(facet_set, vertex_set)
       extra_vert <- setdiff(vertex_set, vertex_set)
       
       if (length(lost_vert) > 0){
         cat("\n these vertex are needed and can't be found in file: ", 
-             paste(lost_vert, collapse = ", "), "\n")
-        return(1)
+            paste(lost_vert, collapse = ", "), "\n")
+        return(2)
       } else if (length(extra_vert) > 0){
         stop("\n these vertex are not needed by facet in file: ", 
              paste(extra_vert, collapse = ", "), "\n")
-        return(2)
+        return(3)
       } else {
         stop("\n facet set and vertex set are not equal, weird. \n")
-        return(3)
+        return(4)
       }
     }
     
-    ## 4.2 Now re-index (hash) vertex in facet command 
+    ## 4.3 Now re-index (hash) vertex in facet command 
     # note we assume vertex_set == facet_set
     fct_idx <- grep("^f ", target_txt)
     vtx_idx <- grep("^v", target_txt)
@@ -350,7 +463,7 @@ obj_filter <-
       }
       if (verbose) cat("\n~~~~~~~~~~~~~~~~~~~~~~~~~\n")
     }
-
+    
     # close and cleanup
     close(out_file_con)
     if (verbose) cat("File Connection closed.\n") 

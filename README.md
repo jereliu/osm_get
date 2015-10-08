@@ -19,7 +19,7 @@ R Script to:
 * Extract building model out of a OBJ file
  	- [x] Write R script to subset buildings
  	- [x] Fix Vertex index
- 	- [] Fix Stragglers with irregular data
+ 	- [x] Fix Stragglers with irregular data (Note: problem was some building facets requires vertices thats not defined in code blocks for Buildings).
 	
 * Figure out how to measure volumn of a OBJ file
-	- [ ] No idea yet....
+	- [ ] implement idea from this [StackExchange thread](http://stackoverflow.com/questions/1406029/how-to-calculate-the-volume-of-a-3d-mesh-object-the-surface-of-which-is-made-up)?
