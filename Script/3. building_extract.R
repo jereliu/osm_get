@@ -4,7 +4,10 @@ require(dplyr)
 require(magrittr)
 
 file_dir <- 
-  "/Users/Jeremiah/Dropbox/Research/Harvard/1. BostonPol/Analysis/Elem/2/data/3d_building_osm"
+  paste0(
+    "/Users/Jeremiah/Dropbox/Research/Harvard/1. BostonPol/",
+    "Analysis/Elem/2/data/3d_building_osm"
+  )
 
 #### 3. read-in 3d OBJ file and keep only the building objects ####
 in_dir <- paste0(file_dir, "/Data_3d/")

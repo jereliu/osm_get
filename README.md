@@ -1,6 +1,6 @@
 # osm_get
 
-R Script to:
+R/Bash Script to:
 
 1. obtain osm map data of specified radius/ bbox around a given coordinate [immitate JOSM]
 2. obtain 3d model (OBJ) from obtained osm data [through commandline OSM2World]
@@ -19,7 +19,9 @@ R Script to:
 * Extract building model out of a OBJ file
  	- [x] Write R script to subset buildings
  	- [x] Fix Vertex index
- 	- [x] Fix Stragglers with irregular data (Note: problem was some building facets requires vertices thats not defined in code blocks for Buildings).
+ 	- [x] Fix Stragglers with irregular data 
+ 		+ (Note: problem was some building facets requires vertices thats not defined in "g BUILDINGS" code blocks).
 	
 * Figure out how to measure volumn of a OBJ file
-	- [ ] implement idea from this [StackExchange thread](http://stackoverflow.com/questions/1406029/how-to-calculate-the-volume-of-a-3d-mesh-object-the-surface-of-which-is-made-up)?
+	- [x] R-script to parse vertices contained by each building
+	- [x] Calculate convex hull with volume measure using 'geometry' package.

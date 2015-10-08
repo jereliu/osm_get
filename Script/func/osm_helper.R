@@ -1,4 +1,4 @@
-#### 1. For osm_download ####
+#### 1. For osm_download ~~~~~~~~~~~ ####
 #### api_func: function to generate api url ====
 api_gen <- 
   function(bbox, xapi = xapi){
@@ -107,7 +107,7 @@ osm_get <-
         "\"for output files :)\n")
   }
 
-#### 2. For obj_volcalc ####
+#### 2. For building_extract ~~~~~~~~~~~ ####
 list_from_idx <- 
   function(title_idx, text){
     # helper function for obj_filter,
@@ -123,6 +123,43 @@ list_from_idx <-
                (title_idx_extend[i+1]-1)
              text[idx]
            })
+  }
+
+order_list <- 
+  function(txt, group_key = "^g ", obj_key = "^o "){
+    ## 2.1 create first order list  by object group ---
+    # output: group_list (vertex marked)
+    
+    # obtain idx of group title
+    group_idx <- grep(group_key, txt) 
+    group_title <- c("comment", txt[group_idx])
+    
+    group_list <- 
+      # group lines into list by group
+      list_from_idx(group_idx, txt) %>% 
+      # set title names
+      set_names(group_title)
+    
+    ## 2.2 create second order list by object ---
+    # output: group_obj_list (vertex marked)
+    group_obj_list <- 
+      lapply(group_list, 
+             function(group_txt){
+               # obtain idx of object title
+               title_idx <- grep(obj_key, group_txt) 
+               title_list <- group_txt[title_idx] %>% 
+                 gsub("^o ", "", .)
+               
+               obj_list <- 
+                 # for each title, group its lines into one el in list
+                 list_from_idx(title_idx, group_txt) %>% 
+                 # set title names
+                 set_names(c("group", title_list))
+             }
+      )
+    
+    # return 
+    group_obj_list
   }
 
 obj_filter <- 
@@ -157,7 +194,7 @@ obj_filter <-
     # mark vertex index, "v a b c" => "v22 a b c"
     v_idx <- grep("^v ", txt)
     
-    txt[v_idx] <- #mark vertex
+    txt[v_idx] <- #mark vertex by its index
       paste0("v", 1:length(v_idx)) %>% 
       mapply(gsub, "^v", ., txt[v_idx]) %>% 
       as.vector
@@ -168,35 +205,7 @@ obj_filter <-
     # (e.g. comment, Road, Building etc), 
     # then by object (e.g. Building001)
     
-    ## 2.1 create first order list  by object group ---
-    # output: group_list (vertex marked)
-    
-    # obtain idx of group title
-    group_idx <- grep("^g ", txt) 
-    group_title <- c("comment", txt[group_idx])
-    
-    group_list <- 
-      # group lines into list by group
-      list_from_idx(group_idx, txt) %>% 
-      # set title names
-      set_names(group_title)
-    
-    ## 2.2 create second order list by object ---
-    # output: group_obj_list (vertex marked)
-    group_obj_list <- 
-      lapply(group_list, 
-             function(group_txt){
-               # obtain idx of object title
-               title_idx <- grep("^o ", group_txt) 
-               title_list <- group_txt[title_idx] %>% gsub("^o ", "", .)
-               
-               obj_list <- 
-                 # for each title, group its lines into one el in list
-                 list_from_idx(title_idx, group_txt) %>% 
-                 # set title names
-                 set_names(c("group", title_list))
-             }
-      )
+    group_obj_list <- order_list(txt)
     
     ### 3. Filtering using the keyword from 'filter' ===
     # output: target_list (vertex marked)
@@ -473,6 +482,53 @@ obj_filter <-
   }
 
 
+#### 3. For vol_calc ~~~~~~~~~~~ ####
+read_obj <- 
+  function(file_name, in_dir = "./Data_3d/",
+           verbose = FALSE){
+    # Function to read-in a wavefront .obj file
+    # output: a list of vertices of each obj
+    
+    ## 1. read in raw file ##
+    txt <- readLines(paste0(in_dir, file_name, ".obj"))
+    
+    ## 2. organize into obj list of vertices ##
+    vert_list <- # a list of numeric coord (a, b, c)
+      grep("^v ", txt, value = TRUE) %>% 
+      lapply(function(line){
+        strsplit(line, " ")[[1]][3:5] %>% as.numeric
+      } 
+      )
+    
+    # obtain list of vertex coord for facets in each object
+    obj_facet_list <- 
+      # get group-obj (2-tier) list
+      order_list(txt) %>% 
+      # convert to obj (1-tier) list
+      do.call(c, .) %>% 
+      # for each obj, select facet, extract numeric index
+      lapply( 
+        function(obj){
+          vert_idx <- 
+            # the index of vertices contained by this facet
+            grep("^f ", obj, value = TRUE) %>%
+            strsplit(" ") %>% 
+            lapply(function(x) x[2:4] %>% as.numeric) %>%
+            unlist %>% unique 
+          
+          # the numeric coord of each vertex
+          vert_list[vert_idx] %>% do.call(rbind, .)
+        }
+      )
+    
+    # remove empty elements (comments/group title), return this list
+    obj_vert_list <- 
+      sapply(obj_facet_list, length) %>% 
+      is_greater_than(0) %>% which %>%
+      (function(idx) obj_facet_list[idx])
+    
+    obj_vert_list
+  }
 
 
 
