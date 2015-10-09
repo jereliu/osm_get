@@ -1,5 +1,7 @@
 # osm_get
 
+beta v0.1
+
 R/Bash Script for project **BostonPol/Elem** to:
 
 1. obtain osm map data of specified radius/ bbox around a given coordinate [through OSM Extended API]
