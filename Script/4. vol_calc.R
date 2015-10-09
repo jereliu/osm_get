@@ -10,6 +10,7 @@ file_dir <-
   )
 
 res_dir <- "./output/"
+
 #### 4. read-in 3d OBJ file and keep only the building objects ####
 in_dir <- paste0(file_dir, "/Data_3d_building/")
 
@@ -30,6 +31,7 @@ for (file_name in file_list){
   obj_list <- read_obj(file_name, in_dir = in_dir)
   cat("calculating volume..")
   vol <- 
+    # if the building turns out to be flat, return 0.
     sapply(obj_list, 
            function(obj) 
              tryCatch(convhulln(obj, options = "FA")$vol, 
@@ -40,7 +42,21 @@ for (file_name in file_list){
   file_vol[file_name] <- vol
 }
 
+
+#### Clean up and add sites with no building nearby ####
+in_dir0 <- paste0(file_dir, "/Data_3d/")
+
+missing_file_list <- 
+  list.files(in_dir0) %>% 
+  grep("*.obj$", ., value = TRUE) %>%
+  gsub("\\.obj$", "", .) %>% 
+  setdiff(file_list)
+
 file_vol %>%
   (function(x) cbind(site = names(x), vol = x)) %>%
-  write.csv(file = paste0(res_dir, "site_vol.csv"))
+  rbind(cbind(missing_file_list, 0)) %>% 
+  set_rownames(NULL) %>% 
+  write.csv(file = paste0(res_dir, "site_vol_1km.csv"),
+            row.names = FALSE)
+
 

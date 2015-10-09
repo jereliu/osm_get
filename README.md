@@ -1,10 +1,10 @@
 # osm_get
 
-R/Bash Script to:
+R/Bash Script for project **BostonPol/Elem** to:
 
-1. obtain osm map data of specified radius/ bbox around a given coordinate [immitate JOSM]
-2. obtain 3d model (OBJ) from obtained osm data [through commandline OSM2World]
-3. Measure volumn of generated 3d model  
+1. obtain osm map data of specified radius/ bbox around a given coordinate [through OSM Extended API]
+2. obtain 3d model (OBJ) from obtained osm data [bash script evoking commandline OSM2World].
+3. Measure volumn of generated 3d model through convex hull estimation. 
 
 ## TO-DO
 
